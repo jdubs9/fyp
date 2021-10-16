@@ -4,27 +4,95 @@ const submissionModel = require('../studentFacultyAssignments/student_faculty_as
 const userModel = require('../users/users_model');
 const quizModel = require('../quizes/quiz_model');
 const quizSubmissionModel = require('../quizSubmission/quiz_submission_model');
+// const { spawn } = require('child_process');
+const { execFile } = require('child_process');
+const { finished } = require('stream');
+const { promisify } = require('util');
+const axios = require("axios");
+// const { downloadFile } = require('./download');
 
 class Assignment {
   
     constructor() { }
 
+    async callSubmissionCode(filepath, inp) {
+            console.log("===========================================");
+
+            var dataToSend;
+
+            dataToSend = new Promise((resolve, reject) => {
+                execFile('python', [filepath, inp], (error, stdout, stderr) => {
+                    console.log("inside exec promise");
+                    if (error) {
+                        console.warn(error);
+                    }
+                    resolve(stdout? stdout : stderr);
+                });
+            });
+            return dataToSend;
+    }
+
+    testAssignment() {
+        return async (req, res) => {
+
+            const file = req.file;
+            console.log("---------------------------------------------------------------------");
+            const { input_list, correctcode } = req.body;
+
+            var inputList = JSON.parse(input_list);
+            console.log(inputList);
+
+
+            let correctcode_filepath = './public/download.py';
+            const writer = fs.createWriteStream(correctcode_filepath);
+            axios.get(`http://localhost:8081/${correctcode}`, {
+            responseType: 'stream',
+          }).then(async res => {
+            res.data.pipe(writer);
+          });
+
+
+            for (let i = 0; i < inputList.length; i++) {
+                inputList[i].actual = await this.callSubmissionCode(file.path, inputList[i].inputval);
+                inputList[i].actual = inputList[i].actual.replace(/(\r\n|\n|\r)/gm, "");
+                inputList[i].expected = await this.callSubmissionCode(correctcode_filepath, inputList[i].inputval);
+                inputList[i].expected = inputList[i].expected.replace(/(\r\n|\n|\r)/gm, "");
+                inputList[i].result = (inputList[i].actual==inputList[i].expected);
+            }
+            
+            console.log(inputList);
+
+            console.log("right before return");
+            return res.status(200).json(inputList);
+        }
+    }
+
     createAssignment() {
         return async (req, res) => { 
-            
-            const { title, class_id, description, total_marks, submission_date } = req.body;
-            const file = req.file;
-            if (!req.body || !title ||!class_id ||!description ||!total_marks ||!file ||!submission_date) {
-                this.removeImage(file.filename).then().catch();
+            const { title, class_id, description, total_marks, submission_date, enable_testing, inputList } = req.body;
+            const files = req.files;
+            if (!req.body || !title ||!class_id ||!description ||!total_marks ||!files ||!submission_date) {
+                this.removeImage(files.assignment[0].filename).then().catch();
+                if (files.correct_code) {
+                    this.removeImage(files.correct_code[0].filename).then().catch();
+                }
                 return res.status(400).send({ msg: 'Bad Request' });
             }
             
             try {
-                const result = await assignmentModel.create({ title, class_id, submission_date, description, file: file.filename, total_marks });
+                if (files.correct_code) {
+                    const result = await assignmentModel.create({ title, class_id, submission_date, description, file: files.assignment[0].filename, total_marks, enable_testing, inputList, code_file: files.correct_code[0].filename });
+                }
+                else {
+                    const result = await assignmentModel.create({ title, class_id, submission_date, description, file: files.assignment[0].filename, total_marks, enable_testing });
+                }
                 return res.status(200).json({ msg: 'Assignment Created Successfully' });
             } catch (err) {
                 console.log('Error in creating assignment: ', err);
-                this.removeImage(file.filename).then().catch();
+                this.removeImage(files.assignment[0].filename).then().catch();
+                if (files.correct_code) {
+                    this.removeImage(files.correct_code[0].filename).then().catch();
+                }
                 return res.status(500).json({ msg: 'Internal Server Error', error: err });
             }
         }
@@ -32,16 +100,19 @@ class Assignment {
 
     submitAssignment() {
         return async (req, res) => { 
+            console.log(req);
             
-            const { user_id, assign_id, } = req.body;
+            const { user_id, assign_id, obtained_marks } = req.body;
             const file = req.file;
+            
+
             if (!req.body || !user_id ||!assign_id ||!file) {
                 this.removeImage(file.filename).then().catch();
                 return res.status(400).send({ msg: 'Bad Request' });
             }
             
             try {
-                const result = await submissionModel.create({ user_id, assignment_id: assign_id, file: file.filename });
+                const result = await submissionModel.create({ user_id, assignment_id: assign_id, file: file.filename, obtained_marks: obtained_marks });
                 return res.status(200).json({ msg: 'Assignment Submitted Successfully' });
             } catch (err) {
                 console.log('Error in creating assignment: ', err);
@@ -53,8 +124,9 @@ class Assignment {
 
     resubmitAssignment() {
         return async (req, res) => { 
+            console.log(req);
             
-            const { user_id, assign_id, } = req.body;
+            const { user_id, assign_id, obtained_marks } = req.body;
             const file = req.file;
             if (!req.body || !user_id ||!assign_id ||!file) {
                 this.removeImage(file.filename).then().catch();
@@ -65,7 +137,7 @@ class Assignment {
                 const result = await submissionModel.findOne({ where: { user_id, assignment_id: assign_id } });
                 if (result) {
                     this.removeImage(result.file).then().catch();
-                    const result1 = await result.update({ file: file.filename });
+                    const result1 = await result.update({ file: file.filename, obtained_marks: obtained_marks });
                     return res.status(200).json({ msg: 'Assignment ReSubmitted Successfully' });
                 } else {
                     this.removeImage(file.filename).then().catch();

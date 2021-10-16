@@ -118,6 +118,7 @@ class AddAssignments extends React.Component {
         data.append('total_marks', total_marks);
         data.append('submission_date', submission_date);
         
+
         axios.post(`${configs.prod}/api/class/assignment/create`, data, config)
             .then(response => {
                 this.props.history.push(`/faculty/class/list`);

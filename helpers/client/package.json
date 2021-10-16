@@ -55,5 +55,5 @@
   "devDependencies": {
     "react-to-print": "^2.1.1"
   },
-  "proxy": "http://localhost:8081"
+  "proxy": "http://localhost:8081/"
 }

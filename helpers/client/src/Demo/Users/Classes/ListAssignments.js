@@ -276,7 +276,7 @@ class ListAssignment extends React.Component {
                                 <Modal.Body>
                                     <Row>
                                         <Col>
-                                            Are you sure to want to Submit <b>{this.state.title}</b>?
+                                            Are you sure you want to Submit <b>{this.state.title}</b>?
                                         </Col>
                                     </Row>
                                     <Row>

@@ -98,7 +98,7 @@ class VerifyIdentity extends React.Component {
                             </Card.Header>
                             <Card.Body>
                                 <Card.Text>
-                                   <b>Note: </b> Your'e seeing this page because your identity is not verified.<br />
+                                   <b>Note: </b> You're seeing this page because your identity is not verified.<br />
                                    Please verify your Identity to proceed in the LMS.
                                 </Card.Text>
                                 <Row>

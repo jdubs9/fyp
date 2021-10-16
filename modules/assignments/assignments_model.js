@@ -18,11 +18,22 @@ const assignment = db.sequelize.define('assignments', {
   file: {
     type: db.DataTypes.STRING,
   },
+  code_file: {
+    type: db.DataTypes.STRING,
+  },
   total_marks: {
     type: db.DataTypes.DOUBLE
   },
   submission_date: {
     type: db.DataTypes.DATE
+  },
+  enable_testing: {
+    type: db.DataTypes.BOOLEAN,
+    required: true,
+    defaultValue: false
+  },
+  inputList: {
+    type: db.DataTypes.JSON
   },
   class_id: {
     type: db.DataTypes.INTEGER,

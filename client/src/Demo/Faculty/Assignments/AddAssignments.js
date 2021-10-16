@@ -19,6 +19,9 @@ class AddAssignments extends React.Component {
         this.onDropPhoto = (files) => {
             this.setState({ files: files, isValid: { value: true, text: '' } });
         };
+        this.onDropCorrectCode = (files) => {
+            this.setState({ code_file: files, isValid: { value: true, text: '' } });
+        };
         this.state = {
             isLoading: false,
 			deletedRowId: null,
@@ -35,7 +38,10 @@ class AddAssignments extends React.Component {
             data: [],
             files: [],
             filesProgress: 0,
-            submission_date: ''
+            submission_date: '',
+            enable_testing: false,
+            inputList: [{ inputval: "", visibility: "visible" }],
+            code_file: []
         }
     }
 
@@ -71,10 +77,40 @@ class AddAssignments extends React.Component {
     handleChange(e,name) {
         this.setState({ [name]: e._d.toISOString() });
     }
+
+    handleCheckboxChange(e) {
+        this.setState({ enable_testing: e.checked });
+    }
+
+    // handle input change
+    handleInputListChange(e, index) {
+        const { name, value } = e.target;
+        var statevar = name;
+        if (statevar.includes("visibility")) {
+            statevar = "visibility";
+        }
+        const list = [...this.state.inputList];
+        list[index][statevar] = value;
+        this.setState({ inputList: list });
+    };
+    
+    // handle click event of the Remove button
+    handleRemoveInputListClick(index) {
+        const list = [...this.state.inputList];
+        list.splice(index, 1);
+        this.setState({ inputList: list });
+    };
+    
+    // handle click event of the Add button
+    handleAddInputListClick() {
+        const list = [...this.state.inputList];
+        list.push({ inputval: "", visibility: "visible" });
+        this.setState({ inputList: list });
+    };
     
     async handleSubmit(e) {
         e.preventDefault();
-        const { name, files, description, class_id, total_marks, submission_date  } = this.state;
+        const { name, files, description, class_id, total_marks, submission_date, enable_testing, inputList, code_file  } = this.state;
 
         if (!name && name.trim().length <= 0) {
             this.setState({ isValid: { value: true, text: 'Please enter valid Assigment Title', name: 'name' }});
@@ -100,6 +136,16 @@ class AddAssignments extends React.Component {
             this.setState({ isValid: { value: true, text: 'Please drop Assignment file above', name: 'files' }});
             return;
         }
+
+        if (enable_testing && inputList[0].inputval.trim().length <= 0) {
+            this.setState({ isValid: { value: true, text: 'Please enter valid test input', name: 'name' }});
+            return;
+        }
+
+        if (enable_testing && !code_file.length) {
+            this.setState({ isValid: { value: true, text: 'Please drop Correct Code file above', name: 'code_file' }});
+            return;
+        }
         
         await this.setState({ filesProgress: 0 });
         let that = this;
@@ -109,6 +155,9 @@ class AddAssignments extends React.Component {
                 that.setState({ filesProgress: percentCompleted });
             }
         }
+
+        const inputListJson = JSON.stringify(inputList);
+        console.log(inputListJson);
         
         let data = new FormData()
         data.append('assignment', files[0]);
@@ -117,6 +166,19 @@ class AddAssignments extends React.Component {
         data.append('class_id', class_id);
         data.append('total_marks', total_marks);
         data.append('submission_date', submission_date);
+        data.append('enable_testing', enable_testing);
+        data.append('inputList', inputListJson);
+        data.append('correct_code', code_file[0]);
+
+        for (var pair of data.entries()) {
+            console.log(pair[0]+ ', ' + pair[1]);
+            if (pair[0]=='assignment') {
+                console.log(pair[1].name);
+            }
+            if (pair[0]=='correct_code') {
+                console.log(pair[1].name);
+            }
+        }
         
         axios.post(`${configs.prod}/api/class/assignment/create`, data, config)
             .then(response => {
@@ -143,7 +205,10 @@ class AddAssignments extends React.Component {
     }
 
     render() {
-        const filePreview = this.state.files.map(file => (
+        const assignmentfilePreview = this.state.files.map(file => (
+            <i style={{ fontSize: '20em' }} class="feather icon-file"></i>
+        ));
+        const codefilePreview = this.state.code_file.map(file => (
             <i style={{ fontSize: '20em' }} class="feather icon-file"></i>
         ));
         const maxSize = 104857600 * 10;
@@ -241,17 +306,19 @@ class AddAssignments extends React.Component {
                                                         minSize={0}
                                                         maxSize={maxSize}
                                                         multiple={false}
+                                                        name="assignment_file"
+                                                        id="assignment_file"
                                                     >
                                                         {({getRootProps, getInputProps, isDragActive, isDragReject, rejectedFiles}) => {
                                                             const isFileTooLarge = rejectedFiles && rejectedFiles.length > 0 && rejectedFiles[0].size > maxSize;
                                                             return (
                                                                 <section>
                                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent:'center', borderWidth: 2, height: '25em', borderRadius: 2, textAlign: 'center', borderColor: '#eeeeee', borderStyle: 'dashed', backgroundColor: '#fafafa', color: '#bdbdbd' }} 
-                                                                    {...getRootProps({className: 'dropzone',
+                                                                    {...getRootProps({className: 'dropzone', name:"assignment_file", id:"assignment_file",
                                                                         onClick: event => event.stopPropagation()
                                                                     })}>
                                                                         <input {...getInputProps()} />
-                                                                        {!isDragActive && !filePreview.length && 'Drop a assignment file to upload!'}
+                                                                        {!isDragActive && !assignmentfilePreview.length && 'Drop a assignment file to upload!'}
                                                                         {isDragActive && !isDragReject && "Drop it like it's hot!"}
                                                                         {isDragReject && "File type not accepted, sorry!"}
                                                                         {isFileTooLarge && (
@@ -259,8 +326,8 @@ class AddAssignments extends React.Component {
                                                                               File is too large. Max Size 1GB
                                                                             </div>
                                                                         )}
-                                                                        { filePreview }
-                                                                        { filePreview.length ? <div style={{ width: '15%', position: 'absolute', padding: 14, backgroundColor: 'whitesmoke', borderRadius: 20 }}>
+                                                                        { assignmentfilePreview }
+                                                                        { assignmentfilePreview.length ? <div style={{ width: '15%', position: 'absolute', padding: 14, backgroundColor: 'whitesmoke', borderRadius: 20 }}>
                                                                             <CircularProgressbar value={this.state.filesProgress} text={`${this.state.filesProgress}%`} /> 
                                                                             </div> : null 
                                                                         }
@@ -277,6 +344,129 @@ class AddAssignments extends React.Component {
                                                     </Dropzone>
                                                 </Col>
                                             </Form.Row>
+                                            <Form.Row>
+                                                <Col md={{ span: 8, offset: 2 }}>
+                                                    <Form.Group controlId="formBasicCheckbox">
+                                                        <Form.Check 
+                                                            type="checkbox"
+                                                            name='enable_testing'
+                                                            id='enable_testing'
+                                                            label="Enable Automated Code Testing"
+                                                            onChange={(e) => this.handleCheckboxChange(e.target) }
+                                                        />
+                                                    </Form.Group>
+                                                </Col>
+                                            </Form.Row>
+                                            {this.state.enable_testing && this.state.inputList.map((x, i) => {
+                                                return (
+                                                    <Form.Row className="align-items-center">
+                                                        <Col md={{ span: 3, offset: 2 }}>
+                                                            <Form.Group className="mb-2" controlId="formBasicEmail">
+                                                                <Form.Label>Input</Form.Label>
+                                                                <Form.Control 
+                                                                    type="text" 
+                                                                    name="inputval" 
+                                                                    placeholder="Enter input test value" 
+                                                                    value={x.inputval}
+                                                                    // className={this.state.isValid.value && this.state.isValid.name === 'name' ? 'in-valid-input' : ''}
+                                                                    // onFocus={() => this.setState({ isValid: { value: false, text: ''}})}
+                                                                    onChange={e => this.handleInputListChange(e, i)}
+                                                                />
+                                                            </Form.Group>
+                                                        </Col>
+                                                        <Col md={{ span: "auto" }}>
+                                                            <Form.Group>
+                                                                <Form.Check 
+                                                                    type="radio"
+                                                                    name={'visibility-'+i}
+                                                                    id='visible'
+                                                                    value='visible'
+                                                                    label="Visible"
+                                                                    defaultChecked
+                                                                    onChange={e => this.handleInputListChange(e, i)}
+                                                                />
+                                                            </Form.Group>
+                                                        </Col>
+                                                        <Col md={{ span: "auto" }}>
+                                                            <Form.Group>
+                                                                <Form.Check 
+                                                                    type="radio"
+                                                                    name={'visibility-'+i}
+                                                                    id='hidden'
+                                                                    value='hidden'
+                                                                    label="Hidden"
+                                                                    onChange={e => this.handleInputListChange(e, i)}
+                                                                />
+                                                            </Form.Group>
+                                                        </Col>
+                                                        <Col md={{ span: "auto" }}>
+                                                        {this.state.inputList.length !== 1 &&
+                                                                <Button type="button" style={{ marginTop: '1.8rem', width: '100%' }} variant={"primary"}
+                                                                    onClick={() => this.handleRemoveInputListClick(i)}>
+                                                                    { 'Remove' }
+                                                                </Button>
+                                                        }
+                                                        </Col>
+                                                        <Col md={{ span: 1 }}>
+                                                        {this.state.inputList.length - 1 === i &&
+                                                                <Button type="button" style={{ marginTop: '1.8rem', width: '100%' }} variant={"primary"}
+                                                                    onClick={() => this.handleAddInputListClick()}>
+                                                                    { 'Add' }
+                                                                </Button>
+                                                        }
+                                                        </Col>
+                                                    </Form.Row>
+                                                );
+                                            })}
+                                            {this.state.enable_testing &&
+                                            <Form.Row>
+                                                <Col md={{ span: 8, offset: 2 }}>
+                                                    <Dropzone 
+                                                        onDrop={this.onDropCorrectCode} 
+                                                        // accept=".py" 
+                                                        minSize={0}
+                                                        maxSize={maxSize}
+                                                        multiple={false}
+                                                        name="code_file"
+                                                        id="code_file"
+                                                    >
+                                                        {({getRootProps, getInputProps, isDragActive, isDragReject, rejectedFiles}) => {
+                                                            const isFileTooLarge = rejectedFiles && rejectedFiles.length > 0 && rejectedFiles[0].size > maxSize;
+                                                            return (
+                                                                <section>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent:'center', borderWidth: 2, height: '25em', borderRadius: 2, textAlign: 'center', borderColor: '#eeeeee', borderStyle: 'dashed', backgroundColor: '#fafafa', color: '#bdbdbd' }} 
+                                                                    {...getRootProps({className: 'dropzone', name:"code_file", id:"code_file",
+                                                                        onClick: event => event.stopPropagation()
+                                                                    })}>
+                                                                        <input {...getInputProps()} />
+                                                                        {!isDragActive && !codefilePreview.length && 'Drop a assignment file to upload!'}
+                                                                        {isDragActive && !isDragReject && "Drop it like it's hot!"}
+                                                                        {isDragReject && "File type not accepted, sorry!"}
+                                                                        {isFileTooLarge && (
+                                                                            <div className="text-danger mt-2">
+                                                                              File is too large. Max Size 1GB
+                                                                            </div>
+                                                                        )}
+                                                                        { codefilePreview }
+                                                                        { codefilePreview.length ? <div style={{ width: '15%', position: 'absolute', padding: 14, backgroundColor: 'whitesmoke', borderRadius: 20 }}>
+                                                                            <CircularProgressbar value={this.state.filesProgress} text={`${this.state.filesProgress}%`} /> 
+                                                                            </div> : null 
+                                                                        }
+                                                                    </div>
+                                                                    {
+                                                                        this.state.isValid.value && this.state.isValid.name === 'code_file' ?
+                                                                        <Form.Text style={{ color: 'red' }}>
+                                                                            { this.state.isValid.text }
+                                                                        </Form.Text> : ''
+                                                                    }
+                                                                </section>
+                                                            )}
+                                                        }
+                                                    </Dropzone>
+                                                </Col>
+                                            </Form.Row>
+                                            }
+
                                             <Form.Row>
                                                 <Col md={{ span: 8, offset: 2 }}>
                                                     <div>
