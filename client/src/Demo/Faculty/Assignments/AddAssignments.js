@@ -169,16 +169,6 @@ class AddAssignments extends React.Component {
         data.append('enable_testing', enable_testing);
         data.append('inputList', inputListJson);
         data.append('correct_code', code_file[0]);
-
-        for (var pair of data.entries()) {
-            console.log(pair[0]+ ', ' + pair[1]);
-            if (pair[0]=='assignment') {
-                console.log(pair[1].name);
-            }
-            if (pair[0]=='correct_code') {
-                console.log(pair[1].name);
-            }
-        }
         
         axios.post(`${configs.prod}/api/class/assignment/create`, data, config)
             .then(response => {
@@ -407,11 +397,11 @@ class AddAssignments extends React.Component {
                                                                 </Button>
                                                         }
                                                         </Col>
-                                                        <Col md={{ span: 1 }}>
+                                                        <Col md={{ span: "auto" }}>
                                                         {this.state.inputList.length - 1 === i &&
                                                                 <Button type="button" style={{ marginTop: '1.8rem', width: '100%' }} variant={"primary"}
                                                                     onClick={() => this.handleAddInputListClick()}>
-                                                                    { 'Add' }
+                                                                    { 'Add More Inputs' }
                                                                 </Button>
                                                         }
                                                         </Col>
@@ -423,7 +413,7 @@ class AddAssignments extends React.Component {
                                                 <Col md={{ span: 8, offset: 2 }}>
                                                     <Dropzone 
                                                         onDrop={this.onDropCorrectCode} 
-                                                        // accept=".py" 
+                                                        accept=".py,text/x-python,application/x-python-code,python" 
                                                         minSize={0}
                                                         maxSize={maxSize}
                                                         multiple={false}
@@ -439,9 +429,9 @@ class AddAssignments extends React.Component {
                                                                         onClick: event => event.stopPropagation()
                                                                     })}>
                                                                         <input {...getInputProps()} />
-                                                                        {!isDragActive && !codefilePreview.length && 'Drop a assignment file to upload!'}
+                                                                        {!isDragActive && !codefilePreview.length && 'Drop a correctly functioning code file to upload!'}
                                                                         {isDragActive && !isDragReject && "Drop it like it's hot!"}
-                                                                        {isDragReject && "File type not accepted, sorry!"}
+                                                                        {isDragReject && "Only Python files will be accepted!"}
                                                                         {isFileTooLarge && (
                                                                             <div className="text-danger mt-2">
                                                                               File is too large. Max Size 1GB

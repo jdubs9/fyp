@@ -12,10 +12,6 @@ import { CircularProgressbar } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import * as actions from '../../../store/actions/userActions';
 import BrowserInteractionTime from 'browser-interaction-time';
-// import * as stream from 'stream';
-// import { promisify } from 'util';
-// var fs = require('fs');
-// const { downloadFile } = require('./download');
 
 const browserInteractionTime = new BrowserInteractionTime({
     timeIntervalEllapsedCallbacks: [],
@@ -62,7 +58,9 @@ class ListAssignment extends React.Component {
             resList: [],
             correct_code: '',
             showTestCases: false,
-            testinput: ''
+            testinput: [{ inputval: "", visibility: "visible" }],
+            ownTestResList: [],
+            showOwnTestCases: false
         }
     }
 
@@ -84,12 +82,11 @@ class ListAssignment extends React.Component {
     }
 
     goToSubmissions(value) {
-    	this.setState({ title: value.title, showModalSubmit: true, downloadRowId: value.id, elem: value, description: value.description, enable_testing: value.enable_testing, inputList: JSON.parse(value.inputList), correct_code: value.code_file });
+    	this.setState({ filesProgress: 0, isLoading: false, title: value.title, showModalSubmit: true, downloadRowId: value.id, elem: value, description: value.description, enable_testing: value.enable_testing, inputList: JSON.parse(value.inputList), correct_code: value.code_file });
     }
 
     goToReeSubmissions(value) {
-        console.log(value);
-        this.setState({ title: value.title, showModalReSubmit: true, downloadRowId: value.id, elem: value, description: value.description, enable_testing: value.enable_testing, correct_code: value.code_file, inputList: JSON.parse(value.inputList) });
+        this.setState({ filesProgress: 0, isLoading: false, title: value.title, showModalReSubmit: true, downloadRowId: value.id, elem: value, description: value.description, enable_testing: value.enable_testing, correct_code: value.code_file, inputList: JSON.parse(value.inputList) });
     }
     
     handleDownload() {
@@ -105,7 +102,6 @@ class ListAssignment extends React.Component {
 
     async handleTestClick() {
         const { files, downloadRowId, inputList, correct_code } = this.state;
-        console.log("inside testclick");
         
         if (!files.length) {
             this.setState({ isValid: { value: true, text: 'Please drop a file above', name: 'files' }});
@@ -120,48 +116,13 @@ class ListAssignment extends React.Component {
                 that.setState({ filesProgress: percentCompleted });
             }
         }
-
-        let temp = this.state.elem.file.split('.');
-        // downloadFile(`${configs.prod}/${this.state.elem.file}`, `${this.state.title}.${temp[temp.length-1]}`);
-
-        // axios.get(`${configs.prod}/${this.state.elem.file}`, {
-        //     responseType: 'stream',
-        //   }).then(res => {
-        //     let temp = this.state.elem.file.split('.');
-        //     console.log(temp);
-        //     console.log(res.data);
-            
-        //     const writer = fs.createWriteStream(`${this.state.title}.${temp[temp.length-1]}`);
-        //     const finished = promisify(stream.finished);
-        //     res.data.pipe(writer);
-        //     console.log(finished.writer);
-
-
-        //     // downloadFile(`${configs.prod}/${this.state.elem.file}`, `${this.state.title}.${temp[temp.length-1]}`);
-
-    
-        // //     // fileDownload(res.data, `${this.state.title}.${temp[temp.length-1]}`);
-            
-
-        // //     // const url = window.URL.createObjectURL(new Blob([res.data]));
-        // //     // const link = document.createElement('a');
-        // //     // link.href = url;
-        // //     // link.setAttribute('download', `${this.state.title}.${temp[temp.length-1]}`); //or any other extension
-        // //     // document.body.appendChild(link);
-        // //     // link.click();
-        // //     // link.parentNode.removeChild(link);
-        //     console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-            
-        //   });
-
-        
+      
         let data = new FormData()
         data.append('assignmentsubmit', files[0]);
         data.append('user_id', this.props.user.id);
         data.append('assign_id', downloadRowId);
         data.append('input_list', inputList);
         data.append('correctcode', correct_code);
-
 
         await axios.post(`${configs.prod}/api/users/class/assignment/test`, data, config)
             .then(async response => {
@@ -179,8 +140,61 @@ class ListAssignment extends React.Component {
             });
     }
 
+    handleInputListChange(e) {
+        const { name, value } = e.target;
+        const list = [...this.state.testinput];
+        list[0][name] = value;
+        this.setState({ testinput: list });
+    };
+
+    async handleTestOwnInputSubmit(e) {
+
+        const { files, downloadRowId, testinput, correct_code  } = this.state;
+
+        if (!testinput && testinput.trim().length <= 0) {
+            this.setState({ isValid: { value: true, text: 'Please enter valid test input', name: 'testinput' }});
+            return;
+        }
+        
+        if (!files.length) {
+            this.setState({ isValid: { value: true, text: 'Please drop a file above', name: 'files' }});
+            return;
+        }
+        
+        await this.setState({ filesProgress: 0, isLoading: true });
+        let that = this;
+        const config = {
+            onUploadProgress: function(progressEvent) {
+                let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+                that.setState({ filesProgress: percentCompleted });
+            }
+        }
+      
+        let data = new FormData()
+        data.append('assignmentsubmit', files[0]);
+        data.append('user_id', this.props.user.id);
+        data.append('assign_id', downloadRowId);
+        data.append('input_list', JSON.stringify(testinput));
+        data.append('correctcode', correct_code);
+
+        await axios.post(`${configs.prod}/api/users/class/assignment/test`, data, config)
+            .then(async response => {
+                this.setState({ ownTestResList: response.data });
+                await this.setState({ showOwnTestCases: true });
+                this.getAssignmentList();
+            })
+            .catch(err => {
+                console.log('Error: ', err.response);
+                if (err.response && err.response.status && (err.response.status === 400 || err.response.status === 500)) {
+                   this.setState({ filesProgress: 0, isLoading: false, isValid: { value: true, text: err.response.data.msg, name:'server_error' } });
+                } else {
+                    this.setState({ filesProgress: 0, isLoading: false, isValid: { value: true, text: 'Unknown Error', name:'server_error' } });
+                }
+            });
+    }
+
     async handleSubmission() {
-        if (this.state.resList.length == 0) {
+        if (this.state.enable_testing && this.state.resList.length == 0) {
             await this.handleTestClick();
         }
 
@@ -200,16 +214,18 @@ class ListAssignment extends React.Component {
             }
         }
         
-        let nopass = this.Counter(this.state.resList);
-        let score = nopass/this.state.resList.length;
-        let after = score * this.state.elem.total_marks;
+        var after;
+        if (this.state.enable_testing) {
+            let nopass = this.Counter(this.state.resList);
+            let score = nopass/this.state.resList.length;
+            after = score * this.state.elem.total_marks;
+        }
 
         let data = new FormData()
         data.append('assignment-submit', files[0]);
         data.append('user_id', this.props.user.id);
         data.append('assign_id', downloadRowId);
         data.append('obtained_marks', after);
-        console.log(data);
         
         axios.post(`${configs.prod}/api/users/class/assignment/submit`, data, config)
             .then(async response => {
@@ -239,7 +255,7 @@ class ListAssignment extends React.Component {
 
     async handleReSubmission() {
 
-        if (this.state.resList.length == 0) {
+        if (this.state.enable_testing && this.state.resList.length == 0) {
             await this.handleTestClick();
         }
 
@@ -259,9 +275,12 @@ class ListAssignment extends React.Component {
             }
         }
         
-        let nopass = this.Counter(this.state.resList);
-        let score = nopass/this.state.resList.length;
-        let after = score * this.state.elem.total_marks;
+        var after;
+        if (this.state.enable_testing) {
+            let nopass = this.Counter(this.state.resList);
+            let score = nopass/this.state.resList.length;
+            after = score * this.state.elem.total_marks;
+        }
 
         let data = new FormData()
         data.append('assignment-submit', files[0]);
@@ -406,9 +425,9 @@ class ListAssignment extends React.Component {
                                     </Row>
                                     <Row>
                                         <Col>
-                                            <Dropzone 
+                                        {this.state.enable_testing && <Dropzone 
                                                 onDrop={this.onDropPhoto} 
-                                                // accept="video/*" 
+                                                accept=".py,text/x-python,application/x-python-code,python" 
                                                 minSize={0}
                                                 maxSize={maxSize}
                                                 multiple={false}
@@ -424,7 +443,7 @@ class ListAssignment extends React.Component {
                                                                 <input {...getInputProps()} />
                                                                 {!isDragActive && !filePreview.length && 'Drop a file to upload!'}
                                                                 {isDragActive && !isDragReject && "Drop it like it's hot!"}
-                                                                {isDragReject && "File type not accepted, sorry!"}
+                                                                {isDragReject && "Only Python files will be accepted!"}
                                                                 {isFileTooLarge && (
                                                                     <div className="text-danger mt-2">
                                                                         File is too large. Max Size 1GB
@@ -446,6 +465,47 @@ class ListAssignment extends React.Component {
                                                     )}
                                                 }
                                             </Dropzone>
+                                            }
+                                            {!this.state.enable_testing && <Dropzone 
+                                                onDrop={this.onDropPhoto} 
+                                                minSize={0}
+                                                maxSize={maxSize}
+                                                multiple={false}
+                                            >
+                                                {({getRootProps, getInputProps, isDragActive, isDragReject, rejectedFiles}) => {
+                                                    const isFileTooLarge = rejectedFiles && rejectedFiles.length > 0 && rejectedFiles[0].size > maxSize;
+                                                    return (
+                                                        <section>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent:'center', borderWidth: 2, height: '25em', borderRadius: 2, textAlign: 'center', borderColor: '#eeeeee', borderStyle: 'dashed', backgroundColor: '#fafafa', color: '#bdbdbd' }} 
+                                                            {...getRootProps({className: 'dropzone',
+                                                                onClick: event => event.stopPropagation()
+                                                            })}>
+                                                                <input {...getInputProps()} />
+                                                                {!isDragActive && !filePreview.length && 'Drop a file to upload!'}
+                                                                {isDragActive && !isDragReject && "Drop it like it's hot!"}
+                                                                {isDragReject && "Only Python files will be accepted!"}
+                                                                {isFileTooLarge && (
+                                                                    <div className="text-danger mt-2">
+                                                                        File is too large. Max Size 1GB
+                                                                    </div>
+                                                                )}
+                                                                { filePreview }
+                                                                { filePreview.length ? <div style={{ width: '15%', position: 'absolute', padding: 14, backgroundColor: 'whitesmoke', borderRadius: 20 }}>
+                                                                    <CircularProgressbar value={this.state.filesProgress} text={`${this.state.filesProgress}%`} /> 
+                                                                    </div> : null 
+                                                                }
+                                                            </div>
+                                                            {
+                                                                this.state.isValid.value && this.state.isValid.name === 'files' ?
+                                                                <Form.Text style={{ color: 'red' }}>
+                                                                    { this.state.isValid.text }
+                                                                </Form.Text> : ''
+                                                            }
+                                                        </section>
+                                                    )}
+                                                }
+                                            </Dropzone>
+                                            }
                                         </Col>
                                     </Row>
                                     <Row>
@@ -492,6 +552,61 @@ class ListAssignment extends React.Component {
                                         </Col>
                                     </Row>
                                     <Row>
+                                    {this.state.enable_testing &&
+                                        <Form className="col-md-12" onSubmit={(e) => this.handleTestOwnInputSubmit(e)}>
+                                            <Form.Row>
+                                                <Col md={{ span: 7 }}>
+                                                    <Form.Group className="mb-2" controlId="formBasicEmail">
+                                                        <Form.Label>Test Own input:</Form.Label>
+                                                        <Form.Control 
+                                                            type="text" 
+                                                            name="inputval" 
+                                                            placeholder="test input" 
+                                                            value={this.state.testinput[0].inputval}
+                                                            className={this.state.isValid.value && this.state.isValid.name === 'testinput' ? 'in-valid-input' : ''}
+                                                            onFocus={() => this.setState({ isValid: { value: false, text: ''}})}
+                                                            onChange={(e) => this.handleInputListChange(e) }
+                                                        />
+                                                    </Form.Group>
+                                                </Col>
+                                                <Col md={{ span: "auto" }}>
+                                                    <Button type="button" style={{ marginTop: '1.8rem', width: '100%' }} variant={"primary"}
+                                                        onClick={() => this.handleTestOwnInputSubmit()}>
+                                                        { 'Test Own Input' }
+                                                    </Button>
+                                                </Col>
+                                            </Form.Row>
+                                        </Form>
+                                    }
+                                    </Row>
+                                    <Row>
+                                        <Col>
+                                            {this.state.showOwnTestCases &&
+                                            <Table bordered hover responsive >
+                                                <thead>Test:</thead>
+                                                <tbody>
+                                                    <tr>
+                                                    <th>Test Input</th>
+                                                        <td>{this.state.testinput[0].inputval}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Expected Output</th>
+                                                        <td>{this.state.ownTestResList[0].expected}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Actual Output</th>
+                                                        <td>{this.state.ownTestResList[0].actual}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Result</th>
+                                                        <td>{this.state.ownTestResList[0].result? <span style={{color: "green"}}>Passed</span>: <span style={{color: "red"}}>Failed</span>}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </Table>
+                                            }
+                                        </Col>
+                                    </Row>
+                                    <Row>
                                         <Col>
                                             <div>
                                                 {
@@ -527,10 +642,9 @@ class ListAssignment extends React.Component {
                                     </Row>
                                     <Row>
                                         <Col>
-                                            <Dropzone 
+                                        {this.state.enable_testing && <Dropzone 
                                                 onDrop={this.onDropPhoto} 
-                                                // accept=".pdf,application/pdf" 
-                                                // accept=".py,text/x-python,application/x-python-code,python" 
+                                                accept=".py,text/x-python,application/x-python-code,python" 
                                                 minSize={0}
                                                 maxSize={maxSize}
                                                 multiple={false}
@@ -546,7 +660,7 @@ class ListAssignment extends React.Component {
                                                                 <input {...getInputProps()} />
                                                                 {!isDragActive && !filePreview.length && 'Drop a file to upload!'}
                                                                 {isDragActive && !isDragReject && "Drop it like it's hot!"}
-                                                                {isDragReject && "File type not accepted, sorry!"}
+                                                                {isDragReject && "Only Python files will be accepted!"}
                                                                 {isFileTooLarge && (
                                                                     <div className="text-danger mt-2">
                                                                         File is too large. Max Size 1GB
@@ -568,6 +682,47 @@ class ListAssignment extends React.Component {
                                                     )}
                                                 }
                                             </Dropzone>
+                                            }
+                                            {!this.state.enable_testing && <Dropzone 
+                                                onDrop={this.onDropPhoto} 
+                                                minSize={0}
+                                                maxSize={maxSize}
+                                                multiple={false}
+                                            >
+                                                {({getRootProps, getInputProps, isDragActive, isDragReject, rejectedFiles}) => {
+                                                    const isFileTooLarge = rejectedFiles && rejectedFiles.length > 0 && rejectedFiles[0].size > maxSize;
+                                                    return (
+                                                        <section>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent:'center', borderWidth: 2, height: '25em', borderRadius: 2, textAlign: 'center', borderColor: '#eeeeee', borderStyle: 'dashed', backgroundColor: '#fafafa', color: '#bdbdbd' }} 
+                                                            {...getRootProps({className: 'dropzone',
+                                                                onClick: event => event.stopPropagation()
+                                                            })}>
+                                                                <input {...getInputProps()} />
+                                                                {!isDragActive && !filePreview.length && 'Drop a file to upload!'}
+                                                                {isDragActive && !isDragReject && "Drop it like it's hot!"}
+                                                                {isDragReject && "Only Python files will be accepted!"}
+                                                                {isFileTooLarge && (
+                                                                    <div className="text-danger mt-2">
+                                                                        File is too large. Max Size 1GB
+                                                                    </div>
+                                                                )}
+                                                                { filePreview }
+                                                                { filePreview.length ? <div style={{ width: '15%', position: 'absolute', padding: 14, backgroundColor: 'whitesmoke', borderRadius: 20 }}>
+                                                                    <CircularProgressbar value={this.state.filesProgress} text={`${this.state.filesProgress}%`} /> 
+                                                                    </div> : null 
+                                                                }
+                                                            </div>
+                                                            {
+                                                                this.state.isValid.value && this.state.isValid.name === 'files' ?
+                                                                <Form.Text style={{ color: 'red' }}>
+                                                                    { this.state.isValid.text }
+                                                                </Form.Text> : ''
+                                                            }
+                                                        </section>
+                                                    )}
+                                                }
+                                            </Dropzone>
+                                            }
                                         </Col>
                                     </Row>
                                     <Row>
@@ -614,6 +769,61 @@ class ListAssignment extends React.Component {
                                         </Col>
                                     </Row>
                                     <Row>
+                                    {this.state.enable_testing &&
+                                        <Form className="col-md-12" onSubmit={(e) => this.handleTestOwnInputSubmit(e)}>
+                                            <Form.Row>
+                                                <Col md={{ span: 7 }}>
+                                                    <Form.Group className="mb-2" controlId="formBasicEmail">
+                                                        <Form.Label>Test Own input:</Form.Label>
+                                                        <Form.Control 
+                                                            type="text" 
+                                                            name="inputval" 
+                                                            placeholder="test input" 
+                                                            value={this.state.testinput[0].inputval}
+                                                            className={this.state.isValid.value && this.state.isValid.name === 'testinput' ? 'in-valid-input' : ''}
+                                                            onFocus={() => this.setState({ isValid: { value: false, text: ''}})}
+                                                            onChange={(e) => this.handleInputListChange(e) }
+                                                        />
+                                                    </Form.Group>
+                                                </Col>
+                                                <Col md={{ span: "auto" }}>
+                                                    <Button type="button" style={{ marginTop: '1.8rem', width: '100%' }} variant={"primary"}
+                                                        onClick={() => this.handleTestOwnInputSubmit()}>
+                                                        { 'Test Own Input' }
+                                                    </Button>
+                                                </Col>
+                                            </Form.Row>
+                                        </Form>
+                                    }
+                                    </Row>
+                                    <Row>
+                                        <Col>
+                                            {this.state.showOwnTestCases &&
+                                            <Table bordered hover responsive >
+                                                <thead>Test:</thead>
+                                                <tbody>
+                                                    <tr>
+                                                    <th>Test Input</th>
+                                                        <td>{this.state.testinput[0].inputval}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Expected Output</th>
+                                                        <td>{this.state.ownTestResList[0].expected}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Actual Output</th>
+                                                        <td>{this.state.ownTestResList[0].actual}</td>
+                                                    </tr>
+                                                    <tr>
+                                                    <th>Result</th>
+                                                        <td>{this.state.ownTestResList[0].result? <span style={{color: "green"}}>Passed</span>: <span style={{color: "red"}}>Failed</span>}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </Table>
+                                            }
+                                        </Col>
+                                    </Row>
+                                    <Row>
                                         <Col>
                                             <div>
                                                 {
@@ -651,7 +861,7 @@ class ListAssignment extends React.Component {
                                                         <th>Title</th>
                                                         <th>Total Marks</th>
                                                         <th>Obtained Marks</th>
-                                                        <th>Submission Date</th>
+                                                        <th>Submission Deadline</th>
                                                         <th>Actions</th>
                                                     </tr>
                                                 </thead>

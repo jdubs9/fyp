@@ -105,13 +105,6 @@ module.exports = function(app) {
     name: 'correct_code', maxCount: 1
   }]),
   Assignments.createAssignment());
-  // upload.single('assignment')
-  // function (req, res, next) {
-  //   console.log(req.file);
-  //   console.log(req.files);
-    // req.file is the `avatar` file
-    // req.body will hold the text fields, if there were any
-  // })
 
   //Assignment List 
   app.get('/api/class/:id/assignment/list', Assignments.listAssignment());
@@ -173,14 +166,7 @@ module.exports = function(app) {
   app.get('/api/users/:user_id/class/:id/assignment/list', Assignments.listUserAssignment());
 
   //test assignment code
-  app.post('/api/users/class/assignment/test',
-  // uploader.upload.fields([{
-  //   name: 'assignmentsubmit', maxCount: 1
-  // }, {
-  //   name: 'correctcode', maxCount: 1
-  // }]),
-  uploader.upload.single('assignmentsubmit'),
-  Assignments.testAssignment());
+  app.post('/api/users/class/assignment/test', uploader.upload.single('assignmentsubmit'), Assignments.testAssignment());
 
   //submit Assignment
   app.post('/api/users/class/assignment/submit', uploader.upload.single('assignment-submit'), Assignments.submitAssignment());

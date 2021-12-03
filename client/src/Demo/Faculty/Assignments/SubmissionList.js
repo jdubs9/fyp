@@ -224,7 +224,7 @@ class SubmissionList extends React.Component {
                     <Col>
                         <Card>
                             <Card.Header>
-                                <Card.Title as="h5">Submitted Assignments <b>{ this.state.assignment.title ? this.state.assignment.title : null }</b></Card.Title>
+                                <Card.Title as="h5">Submitted Assignments for <b>{ this.state.assignment.title ? this.state.assignment.title : null }</b></Card.Title>
                             </Card.Header>
                             <Card.Body>
                                 <Row>

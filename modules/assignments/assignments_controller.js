@@ -4,25 +4,18 @@ const submissionModel = require('../studentFacultyAssignments/student_faculty_as
 const userModel = require('../users/users_model');
 const quizModel = require('../quizes/quiz_model');
 const quizSubmissionModel = require('../quizSubmission/quiz_submission_model');
-// const { spawn } = require('child_process');
 const { execFile } = require('child_process');
-const { finished } = require('stream');
-const { promisify } = require('util');
 const axios = require("axios");
-// const { downloadFile } = require('./download');
 
 class Assignment {
   
     constructor() { }
 
     async callSubmissionCode(filepath, inp) {
-            console.log("===========================================");
-
             var dataToSend;
 
             dataToSend = new Promise((resolve, reject) => {
                 execFile('python', [filepath, inp], (error, stdout, stderr) => {
-                    console.log("inside exec promise");
                     if (error) {
                         console.warn(error);
                     }
@@ -36,12 +29,9 @@ class Assignment {
         return async (req, res) => {
 
             const file = req.file;
-            console.log("---------------------------------------------------------------------");
             const { input_list, correctcode } = req.body;
 
             var inputList = JSON.parse(input_list);
-            console.log(inputList);
-
 
             let correctcode_filepath = './public/download.py';
             const writer = fs.createWriteStream(correctcode_filepath);
@@ -51,7 +41,6 @@ class Assignment {
             res.data.pipe(writer);
           });
 
-
             for (let i = 0; i < inputList.length; i++) {
                 inputList[i].actual = await this.callSubmissionCode(file.path, inputList[i].inputval);
                 inputList[i].actual = inputList[i].actual.replace(/(\r\n|\n|\r)/gm, "");
@@ -59,10 +48,7 @@ class Assignment {
                 inputList[i].expected = inputList[i].expected.replace(/(\r\n|\n|\r)/gm, "");
                 inputList[i].result = (inputList[i].actual==inputList[i].expected);
             }
-            
-            console.log(inputList);
 
-            console.log("right before return");
             return res.status(200).json(inputList);
         }
     }

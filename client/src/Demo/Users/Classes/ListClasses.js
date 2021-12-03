@@ -159,7 +159,7 @@ class ListClasses extends React.Component {
                     <Col>
                         <Card>
                             <Card.Header>
-                                <Card.Title as="h5">Enrolled Students</Card.Title>
+                                <Card.Title as="h5">Available Classes</Card.Title>
                             </Card.Header>
                             <Card.Body>
                                 <Row>

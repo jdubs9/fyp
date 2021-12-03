@@ -28,7 +28,9 @@ const assignmentSubmission = db.sequelize.define('assignment_submission', {
     type: db.DataTypes.STRING,
   },
   obtained_marks: {
-    type: db.DataTypes.DOUBLE
+    type: db.DataTypes.DOUBLE,
+    allowNull: true,
+    defaultValue: null
   },
   is_deleted: {
     type: db.DataTypes.BOOLEAN,
